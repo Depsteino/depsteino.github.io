@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig(() => ({
   plugins: [react()],
-  base: process.env.GITHUB_PAGES_BASE ?? "/my-bio-vite/",
+  base: process.env.GITHUB_PAGES_BASE ?? "/",
   build: {
     outDir: "dist",
     sourcemap: true
