@@ -1,4 +1,6 @@
 :root {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   color-scheme: dark;
   --color-background: #050014;
   --color-card: rgba(11, 10, 36, 0.62);
@@ -107,6 +109,7 @@
   padding: clamp(3rem, 7vw, 3.5rem) clamp(2.5rem, 6vw, 3rem)
     clamp(2.75rem, 6vw, 3rem);
   border-radius: 28px;
+  -webkit-backdrop-filter: blur(26px) saturate(140%);
   backdrop-filter: blur(26px) saturate(140%);
   background: var(--color-card);
   border: 1px solid var(--color-card-border);
@@ -566,6 +569,7 @@
   box-shadow:
     0 30px 55px rgba(5, 8, 24, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(24px);
   backdrop-filter: blur(24px);
   color: rgba(224, 242, 254, 0.95);
   pointer-events: none;
@@ -729,6 +733,7 @@
   background: linear-gradient(135deg, rgba(12, 22, 56, 0.85), rgba(4, 9, 30, 0.9));
   border: 1px solid rgba(94, 231, 255, 0.18);
   box-shadow: 0 45px 80px rgba(3, 7, 18, 0.6);
+  -webkit-backdrop-filter: blur(26px) saturate(120%);
   backdrop-filter: blur(26px) saturate(120%);
   opacity: 0;
   transform: translateY(40px);
@@ -916,7 +921,7 @@
 .timeline__item:focus-visible .timeline__details,
 .timeline__item--active .timeline__details {
   opacity: 1;
-  max-height: 260px;
+  max-height: 420px;
   transform: translateY(0);
 }
 
@@ -1220,6 +1225,37 @@
   }
 }
 
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .profile-card {
+    background: rgba(11, 18, 46, 0.92);
+  }
+
+  .certificates-panel {
+    background: rgba(6, 14, 36, 0.96);
+  }
+
+  .about {
+    background: rgba(8, 15, 40, 0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .space__gradient,
+  .star-field,
+  .profile-card,
+  .profile-card__headline,
+  .profile-card__body,
+  .profile-card__tagline,
+  .scroll-indicator,
+  .about,
+  .about__timeline,
+  .about__portrait,
+  .timeline__item {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 @media (max-width: 600px) {
   .hero {
     min-height: auto;
@@ -1306,6 +1342,109 @@
   .language-switch {
     top: 1rem;
     right: 1.2rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .about {
+    padding: clamp(1.75rem, 7vw, 2.5rem) clamp(1.5rem, 7vw, 2.3rem);
+    gap: clamp(1.5rem, 6vw, 2.25rem);
+  }
+
+  .about__title {
+    white-space: normal;
+    text-align: center;
+    line-height: 1.35;
+    margin-bottom: clamp(1.25rem, 5vw, 1.65rem);
+  }
+
+  .timeline {
+    --timeline-padding: 0;
+    --timeline-axis: 0;
+    padding: 0;
+  }
+
+  .timeline::before {
+    display: none;
+  }
+
+  .timeline__item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: clamp(1rem, 4vw, 1.15rem) clamp(1rem, 6vw, 1.4rem);
+    margin: 0;
+    border-radius: 18px;
+    border: 1px solid rgba(94, 231, 255, 0.18);
+    background: rgba(10, 20, 46, 0.82);
+    box-shadow: 0 18px 38px rgba(8, 15, 45, 0.55);
+    transition:
+      border-color 220ms ease,
+      box-shadow 220ms ease,
+      transform 220ms ease;
+  }
+
+  .timeline__item + .timeline__item {
+    margin-top: clamp(1rem, 5vw, 1.25rem);
+  }
+
+  .timeline__item:focus-visible {
+    padding: clamp(1rem, 4vw, 1.15rem) clamp(1rem, 6vw, 1.4rem);
+    outline-offset: 4px;
+  }
+
+  .timeline__item--active {
+    border-color: rgba(94, 231, 255, 0.35);
+    box-shadow: 0 22px 42px rgba(12, 22, 58, 0.55);
+  }
+
+  .timeline__marker {
+    display: none;
+  }
+
+  .timeline__content {
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .timeline__item:hover .timeline__content,
+  .timeline__item:focus-visible .timeline__content,
+  .timeline__item--active .timeline__content {
+    transform: none;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .timeline__date {
+    display: inline-flex;
+    font-size: 0.85rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(148, 163, 184, 0.85);
+  }
+
+  .timeline__role {
+    font-size: clamp(1.05rem, 4vw, 1.25rem);
+    line-height: 1.35;
+    letter-spacing: 0.02em;
+  }
+
+  .timeline__summary {
+    font-size: 0.95rem;
+    color: rgba(226, 232, 240, 0.92);
+  }
+
+  .timeline__details {
+    max-height: none;
+    opacity: 1;
+    transform: none;
+    margin-top: 0.65rem;
+    color: rgba(226, 232, 240, 0.95);
   }
 }
 .profile-card__tagline {

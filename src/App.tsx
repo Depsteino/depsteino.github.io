@@ -1,11 +1,14 @@
 import {
+  useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
   type ChangeEvent,
   type FocusEvent,
+  type KeyboardEvent,
   type MouseEvent
 } from "react";
 import "./App.css";
@@ -24,6 +27,38 @@ type Certificate = {
   issuer: string;
   logo: string;
   credential?: string;
+};
+
+const usePrefersReducedMotion = (): boolean => {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const updatePreference = (matches: boolean) => {
+      setPrefersReducedMotion((previous) => (previous === matches ? previous : matches));
+    };
+
+    updatePreference(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      updatePreference(event.matches);
+    };
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  return prefersReducedMotion;
 };
 
 const languages = [
@@ -167,6 +202,7 @@ const App = () => {
   const tiltFrame = useRef<number | null>(null);
   const ringPathId = useId();
   const [areCertsOpen, setCertsOpen] = useState(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
   const content = translations[language];
   const timeline = content.timeline;
   const fallbackItem: TimelineItem =
@@ -178,22 +214,24 @@ const App = () => {
       image: "/profilepic.jpeg",
       accent: "rgba(56, 189, 248, 0.55)"
     };
-  const activeItem = timeline[activeIndex] ?? timeline[0] ?? fallbackItem;
-  const profileImageUrl = resolveAssetUrl("/profilepic.jpeg");
-  const portraitImageUrl = resolveAssetUrl(activeItem.image) || profileImageUrl;
+  const profileImageUrl = useMemo(() => resolveAssetUrl("/profilepic.jpeg"), []);
+  const activeItem = useMemo(
+    () => timeline[activeIndex] ?? timeline[0] ?? fallbackItem,
+    [activeIndex, timeline, fallbackItem]
+  );
+  const portraitImageUrl = useMemo(() => {
+    const resolved = resolveAssetUrl(activeItem.image);
+    return resolved || profileImageUrl;
+  }, [activeItem.image, profileImageUrl]);
   const isHebrew = language === "he";
   const displayFirstName = isHebrew ? "דן" : "Dan";
   const displayLastName = isHebrew ? "אפשטיין" : "Epstein";
   const displayFullName = `${displayFirstName} ${displayLastName}`;
-  const figureLabel = isHebrew ? `תמונה של ${displayFullName}` : `Portrait of ${displayFullName}`;
+  const figureLabel = useMemo(
+    () => (isHebrew ? `תמונה של ${displayFullName}` : `Portrait of ${displayFullName}`),
+    [displayFullName, isHebrew]
+  );
   const appDirection = isHebrew ? "rtl" : "ltr";
-
-  const handleScrollToAbout = () => {
-    aboutRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-  };
 
   useEffect(() => {
     const node = aboutRef.current;
@@ -201,9 +239,15 @@ const App = () => {
       return;
     }
 
+    if (typeof window === "undefined" || typeof window.IntersectionObserver !== "function") {
+      setAboutVisible(true);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setAboutVisible(entry.intersectionRatio > 0.15);
+        const nextVisible = entry.isIntersecting && entry.intersectionRatio > 0.15;
+        setAboutVisible((previous) => (previous === nextVisible ? previous : nextVisible));
       },
       {
         threshold: [0, 0.15, 0.35, 0.6, 1],
@@ -218,12 +262,12 @@ const App = () => {
 
   useEffect(() => {
     if (!isAboutVisible) {
-      setActiveIndex(0);
+      setActiveIndex((previous) => (previous === 0 ? previous : 0));
     }
   }, [isAboutVisible]);
 
   useEffect(() => {
-    setActiveIndex(0);
+    setActiveIndex((previous) => (previous === 0 ? previous : 0));
   }, [language]);
 
   useEffect(() => {
@@ -234,52 +278,135 @@ const App = () => {
     };
   }, []);
 
-  const handleTimelineBlur = (event: FocusEvent<HTMLOListElement>) => {
+  const handleTimelineBlur = useCallback((event: FocusEvent<HTMLOListElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-      setActiveIndex(0);
+      setActiveIndex((previous) => (previous === 0 ? previous : 0));
     }
-  };
+  }, []);
 
-  const handleLanguageChange = (event: ChangeEvent<HTMLSelectElement>) => {
+  const handleTimelineActivate = useCallback((index: number) => {
+    setActiveIndex((previous) => (previous === index ? previous : index));
+  }, []);
+
+  const handleTimelineKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLLIElement>) => {
+      if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") {
+        return;
+      }
+      const index = Number((event.currentTarget as HTMLLIElement).dataset.index);
+      if (!Number.isNaN(index)) {
+        event.preventDefault();
+        handleTimelineActivate(index);
+      }
+    },
+    [handleTimelineActivate]
+  );
+
+  const handleLanguageChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value as LanguageCode;
     if (translations[value]) {
       setLanguage(value);
     }
-  };
+  }, []);
 
-  const handleCardMouseMove = (event: MouseEvent<HTMLElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const relX = (event.clientX - rect.left) / rect.width;
-    const relY = (event.clientY - rect.top) / rect.height;
-    const rotateY = (relX - 0.5) * 22;
-    const rotateX = (0.5 - relY) * 18;
+  const handleCardMouseMove = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (prefersReducedMotion) {
+        return;
+      }
 
+      const rect = event.currentTarget.getBoundingClientRect();
+      const relX = (event.clientX - rect.left) / rect.width;
+      const relY = (event.clientY - rect.top) / rect.height;
+      const rotateY = (relX - 0.5) * 22;
+      const rotateX = (0.5 - relY) * 18;
+
+      if (tiltFrame.current) {
+        cancelAnimationFrame(tiltFrame.current);
+      }
+
+      tiltFrame.current = requestAnimationFrame(() => {
+        setTilt((previous) => {
+          if (
+            Math.abs(previous.x - rotateX) < 0.1 &&
+            Math.abs(previous.y - rotateY) < 0.1
+          ) {
+            return previous;
+          }
+          return { x: rotateX, y: rotateY };
+        });
+        tiltFrame.current = null;
+      });
+    },
+    [prefersReducedMotion]
+  );
+
+  const handleCardMouseLeave = useCallback(() => {
     if (tiltFrame.current) {
       cancelAnimationFrame(tiltFrame.current);
-    }
-
-    tiltFrame.current = requestAnimationFrame(() => {
-      setTilt({ x: rotateX, y: rotateY });
       tiltFrame.current = null;
+    }
+    setTilt((previous) => {
+      if (previous.x === 0 && previous.y === 0) {
+        return previous;
+      }
+      return { x: 0, y: 0 };
     });
-  };
+  }, []);
 
-  const handleCardMouseLeave = () => {
-    if (tiltFrame.current) {
-      cancelAnimationFrame(tiltFrame.current);
-      tiltFrame.current = null;
-    }
-    setTilt({ x: 0, y: 0 });
-  };
-
-  const handleToggleCertificates = () => {
+  const handleToggleCertificates = useCallback(() => {
     setCertsOpen((prev) => !prev);
-  };
+  }, []);
 
-  const cardStyle = {
-    "--card-rotate-x": `${tilt.x}deg`,
-    "--card-rotate-y": `${tilt.y}deg`
-  } as CSSProperties;
+  const handleScrollToAbout = useCallback(() => {
+    aboutRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+      block: "start"
+    });
+  }, [prefersReducedMotion]);
+
+  const handleTimelineMouseEnter = useCallback(
+    (event: MouseEvent<HTMLLIElement>) => {
+      const index = Number(event.currentTarget.dataset.index);
+      if (!Number.isNaN(index)) {
+        handleTimelineActivate(index);
+      }
+    },
+    [handleTimelineActivate]
+  );
+
+  const handleTimelineFocus = useCallback(
+    (event: FocusEvent<HTMLLIElement>) => {
+      const index = Number(event.currentTarget.dataset.index);
+      if (!Number.isNaN(index)) {
+        handleTimelineActivate(index);
+      }
+    },
+    [handleTimelineActivate]
+  );
+
+  const handleTimelineClick = useCallback(
+    (event: MouseEvent<HTMLLIElement>) => {
+      const index = Number(event.currentTarget.dataset.index);
+      if (!Number.isNaN(index)) {
+        handleTimelineActivate(index);
+      }
+    },
+    [handleTimelineActivate]
+  );
+
+  const handleTimelineMouseLeave = useCallback(() => {
+    setActiveIndex((previous) => (previous === 0 ? previous : 0));
+  }, []);
+
+  const cardStyle = useMemo(
+    () =>
+      ({
+        "--card-rotate-x": `${prefersReducedMotion ? 0 : tilt.x}deg`,
+        "--card-rotate-y": `${prefersReducedMotion ? 0 : tilt.y}deg`
+      }) as CSSProperties,
+    [prefersReducedMotion, tilt.x, tilt.y]
+  );
 
   return (
     <main className={`app ${isHebrew ? "app--rtl" : ""}`} dir={appDirection}>
@@ -483,36 +610,40 @@ const App = () => {
           >
             {content.experienceTitle}
           </h2>
-          <ol
-            className="timeline"
-            onMouseLeave={() => setActiveIndex(0)}
-            onBlur={handleTimelineBlur}
-          >
-            {timeline.map((item, index) => (
-              <li
-                key={item.timeframe}
-                className={`timeline__item ${
-                  activeIndex === index ? "timeline__item--active" : ""
-                }`}
-                tabIndex={0}
-                onMouseEnter={() => setActiveIndex(index)}
-                onFocus={() => setActiveIndex(index)}
-              >
-                <span className="timeline__marker" aria-hidden="true" />
-                <div className="timeline__content translate-group">
-                  <p className="timeline__date translate-item">
-                    {item.timeframe}
-                  </p>
-                  <h3 className="timeline__role translate-item">{item.title}</h3>
-                  <p className="timeline__summary translate-item">
-                    {item.summary}
-                  </p>
-                  <p className="timeline__details translate-item">
-                    {item.details}
-                  </p>
-                </div>
-              </li>
-            ))}
+          <ol className="timeline" onMouseLeave={handleTimelineMouseLeave} onBlur={handleTimelineBlur}>
+            {timeline.map((item, index) => {
+              const isActive = activeIndex === index;
+              const detailId = `timeline-details-${index}`;
+              return (
+                <li
+                  key={item.timeframe}
+                  data-index={index}
+                  className={`timeline__item ${isActive ? "timeline__item--active" : ""}`}
+                  tabIndex={0}
+                  onMouseEnter={handleTimelineMouseEnter}
+                  onFocus={handleTimelineFocus}
+                  onClick={handleTimelineClick}
+                  onKeyDown={handleTimelineKeyDown}
+                  role="button"
+                  aria-expanded={isActive}
+                  aria-controls={detailId}
+                >
+                  <span className="timeline__marker" aria-hidden="true" />
+                  <div className="timeline__content translate-group">
+                    <p className="timeline__date translate-item">
+                      {item.timeframe}
+                    </p>
+                    <h3 className="timeline__role translate-item">{item.title}</h3>
+                    <p className="timeline__summary translate-item">
+                      {item.summary}
+                    </p>
+                    <p className="timeline__details translate-item" id={detailId}>
+                      {item.details}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
         </div>
         <figure
