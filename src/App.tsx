@@ -519,7 +519,7 @@ const App = () => {
                 </a>
                 <a
                   className="action-button"
-                  href="https://github.com/depsteino"
+                  href="https://github.com/Depsteino/depsteino.github.io"
                   target="_blank"
                   rel="noreferrer"
                 >
